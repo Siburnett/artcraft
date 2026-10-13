@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use std::io;
-use std::path::{PathBuf, MAIN_SEPARATOR};
+use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR};
 
 static PREFIX: Lazy<String> = Lazy::new(|| format!("~{}", MAIN_SEPARATOR));
 
@@ -32,7 +32,14 @@ pub fn expanduser<P: AsRef<str>>(path: P) -> io::Result<PathBuf> {
        //     }
        // },
        // nothing to expand, just make a PathBuf
-       s => PathBuf::from(s)
+       s => {
+           // Prevent path traversal attacks by rejecting paths containing '..'.
+           let path = Path::new(s);
+           if path.components().any(|c| c == Component::ParentDir) {
+               return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid input: {}", path.display())));
+           }
+           PathBuf::from(s)
+       }
    })
 }
 
